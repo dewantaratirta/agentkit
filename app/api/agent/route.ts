@@ -34,10 +34,14 @@ export async function POST(
 
     // 3.Start streaming the agent's response
     messages.push({ id: generateId(), role: "user", content: userMessage });
-    const { text } = await generateText({
-      ...agent,
+    const res = await generateText({
+      model: agent.model,
+      tools: agent.tools,
+      system: agent.system,
       messages,
     });
+
+    const text = res.text.trim() != "" ? res.text.trim : res.response.messages.at(-1)?.content[0]?.result;
 
     // 4. Add the agent's response to the messages
     messages.push({ id: generateId(), role: "assistant", content: text });

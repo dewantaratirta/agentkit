@@ -1,4 +1,5 @@
-import { openai } from "@ai-sdk/openai";
+// import { openai } from "@ai-sdk/openai";
+import {google} from "@ai-sdk/google";
 import { getVercelAITools } from "@coinbase/agentkit-vercel-ai-sdk";
 import { prepareAgentkitAndWalletProvider } from "./prepare-agentkit";
 
@@ -22,7 +23,7 @@ import { prepareAgentkitAndWalletProvider } from "./prepare-agentkit";
 type Agent = {
   tools: ReturnType<typeof getVercelAITools>;
   system: string;
-  model: ReturnType<typeof openai>;
+  model: ReturnType<typeof google>;
   maxSteps?: number;
 };
 let agent: Agent;
@@ -52,7 +53,8 @@ export async function createAgent(): Promise<Agent> {
 
   try {
     // Initialize LLM: https://platform.openai.com/docs/models#gpt-4o
-    const model = openai("gpt-4o-mini");
+    // const model = openai("gpt-4o-mini");
+    const model = google('gemini-2.5-flash');
 
     // Initialize Agent
     const canUseFaucet = walletProvider.getNetwork().networkId == "base-sepolia";
