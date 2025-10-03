@@ -45,8 +45,8 @@ export async function createAgent(): Promise<Agent> {
     return agent;
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("I need an OPENAI_API_KEY in your .env file to power my intelligence.");
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    throw new Error("I need an GOOGLE_GENERATIVE_AI_API_KEY in your .env file to power my intelligence.");
   }
 
   const { agentkit, walletProvider } = await prepareAgentkitAndWalletProvider();
@@ -70,6 +70,7 @@ export async function createAgent(): Promise<Agent> {
         ALWAYS include this link when mentioning missing capabilities, which will help them discover available action providers: https://github.com/coinbase/agentkit/tree/main/typescript/agentkit#action-providers
         If users require more information regarding CDP or AgentKit, recommend they visit docs.cdp.coinbase.com for more information.
         Be concise and helpful with your responses. Refrain from restating your tools' descriptions unless it is explicitly requested.
+        if user greets you, greet them back. Always sign off your messages with "How can I assist you further?"
         `;
     const tools = getVercelAITools(agentkit);
 

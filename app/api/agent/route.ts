@@ -1,53 +1,90 @@
-import { AgentRequest, AgentResponse } from "@/app/types/api";
+﻿import { AgentRequest, AgentResponse } from "@/app/types/api";
 import { NextResponse } from "next/server";
 import { createAgent } from "./create-agent";
 import { Message, generateId, generateText } from "ai";
 
 const messages: Message[] = [];
 
+const extractTextFromMessage = (message: Message): string => {
+  const parts = message.content ?? [];
+  const chunks: string[] = [];
+
+  for (const part of parts as Array<Record<string, unknown>>) {
+    if (part.type === "text" && typeof part.text === "string") {
+      const value = part.text.trim();
+      if (value) {
+        chunks.push(value);
+      }
+      continue;
+    }
+
+    if ("result" in part && part.result != null) {
+      if (typeof part.result === "string") {
+        chunks.push(part.result);
+      } else {
+        try {
+          chunks.push(JSON.stringify(part.result));
+        } catch (error) {
+          console.warn("Unable to stringify tool result", error);
+        }
+      }
+    }
+  }
+
+  return chunks.join("\n").trim();
+};
+
+const findLatestMessageText = (
+  allMessages: Message[],
+  roles: Message["role"][],
+): string | undefined => {
+  for (const message of allMessages) {
+    if (!roles.includes(message.role)) {
+      continue;
+    }
+
+    const text = extractTextFromMessage(message);
+    if (text) {
+      return text;
+    }
+  }
+
+  return undefined;
+};
+
 /**
  * Handles incoming POST requests to interact with the AgentKit-powered AI agent.
  * This function processes user messages and streams responses from the agent.
- *
- * @function POST
- * @param {Request & { json: () => Promise<AgentRequest> }} req - The incoming request object containing the user message.
- * @returns {Promise<NextResponse<AgentResponse>>} JSON response containing the AI-generated reply or an error message.
- *
- * @description Sends a single message to the agent and returns the agents' final response.
- *
- * @example
- * const response = await fetch("/api/agent", {
- *     method: "POST",
- *     headers: { "Content-Type": "application/json" },
- *     body: JSON.stringify({ userMessage: input }),
- * });
  */
 export async function POST(
   req: Request & { json: () => Promise<AgentRequest> },
 ): Promise<NextResponse<AgentResponse>> {
   try {
-    // 1️. Extract user message from the request body
     const { userMessage } = await req.json();
-
-    // 2. Get the agent
     const agent = await createAgent();
 
-    // 3.Start streaming the agent's response
     messages.push({ id: generateId(), role: "user", content: userMessage });
     const res = await generateText({
       model: agent.model,
       tools: agent.tools,
       system: agent.system,
       messages,
+      maxSteps: 10,
     });
 
-    const text = res.text.trim() != "" ? res.text.trim : res.response.messages.at(-1)?.content[0]?.result;
+    const reversedMessages = [...res.response.messages].reverse();
 
-    // 4. Add the agent's response to the messages
-    messages.push({ id: generateId(), role: "assistant", content: text });
+    const responseText =
+      (typeof res.text === "string" ? res.text.trim() : "") ||
+      findLatestMessageText(reversedMessages, ["assistant"]) ||
+      findLatestMessageText(reversedMessages, ["tool"]) ||
+      "";
 
-    // 5️. Return the final response
-    return NextResponse.json({ response: text });
+    if (responseText) {
+      messages.push({ id: generateId(), role: "assistant", content: responseText });
+    }
+
+    return NextResponse.json({ response: responseText });
   } catch (error) {
     console.error("Error processing request:", error);
     return NextResponse.json({
